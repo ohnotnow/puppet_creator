@@ -12,4 +12,5 @@ form.blade.php
 claude_tw*
 outputs/*
 !outputs/.gitkeep
+testinfra_script.py
 

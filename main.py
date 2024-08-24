@@ -356,7 +356,7 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
 
     # remove temp files
     os.remove("temp_module.pp")
-    os.remove("testinfra_script.py")
+    # os.remove("testinfra_script.py")
 
     end_time = datetime.datetime.now()
     elapsed_time = (end_time - start_time).total_seconds()
