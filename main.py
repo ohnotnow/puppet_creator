@@ -92,36 +92,36 @@ def copy_to_container(container, src, dst):
 def get_docker_client():
     return docker.from_env()
 
-def build_rocky_container(version=8, minimal=False):
+def build_rocky_container(version=8, minimal=False, rebuild=False):
+    image_tag = f"puppet-rocky-{version}:latest"
+    client = get_docker_client()
+    if not rebuild:
+        try:
+            client.images.get(image_tag)
+            print(f"Using cached image {image_tag}")
+            return image_tag
+        except docker.errors.ImageNotFound:
+            print(f"Image {image_tag} not found. Building...")
+
     dockerfile = docker_stuff.get_dockerfile('rocky', version, minimal)
     with open('Dockerfile', 'w') as f:
         f.write(dockerfile)
-
-    client = get_docker_client()
-    image_tag = f"puppet-rocky-{version}:latest"
 
     try:
         client.images.build(
             path="./",
             tag=image_tag,
             rm=True,
-            nocache=False
+            nocache=rebuild
         )
     except docker.errors.BuildError as e:
         print(e)
         exit(1)
 
-    try:
-            client.images.get(image_tag)
-            print(f"Image {image_tag} found")
-    except docker.errors.ImageNotFound:
-            print(f"Image {image_tag} not found. Please build the image first.")
-            exit(1)
-
     return image_tag
 
-def start_rocky_container(version=8, minimal=False):
-    image_tag = build_rocky_container(version=version, minimal=minimal)
+def start_rocky_container(version=8, minimal=False, rebuild=False):
+    image_tag = build_rocky_container(version=version, minimal=minimal, rebuild=rebuild)
     client = get_docker_client()
 
     try:
@@ -138,36 +138,36 @@ def start_rocky_container(version=8, minimal=False):
         print(f"Error creating container: {e}")
         exit(1)
 
-def build_debian_container(version=12, minimal=False):
+def build_debian_container(version=12, minimal=False, rebuild=False):
+    image_tag = f"puppet-debian-{version}:latest"
+    client = get_docker_client()
+    if not rebuild:
+        try:
+            client.images.get(image_tag)
+            print(f"Using cached image {image_tag}")
+            return image_tag
+        except docker.errors.ImageNotFound:
+            print(f"Image {image_tag} not found. Building...")
+
     dockerfile = docker_stuff.get_dockerfile('debian', version, minimal)
     with open('Dockerfile', 'w') as f:
         f.write(dockerfile)
-
-    client = get_docker_client()
-    image_tag = f"puppet-debian-{version}:latest"
 
     try:
         client.images.build(
             path="./",
             tag=image_tag,
             rm=True,
-            nocache=False
+            nocache=rebuild
         )
     except docker.errors.BuildError as e:
         print(e)
         exit(1)
 
-    try:
-            client.images.get(image_tag)
-            print(f"Image {image_tag} found")
-    except docker.errors.ImageNotFound:
-            print(f"Image {image_tag} not found. Please build the image first.")
-            exit(1)
-
     return image_tag
 
-def start_debian_container(version=12, minimal=False):
-    image_tag = build_debian_container(version=version, minimal=minimal)
+def start_debian_container(version=12, minimal=False, rebuild=False):
+    image_tag = build_debian_container(version=version, minimal=minimal, rebuild=rebuild)
     client = get_docker_client()
 
     try:
@@ -256,7 +256,7 @@ def tidy_up(container):
         container.stop()
         container.remove()
 
-def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=""):
+def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file="", rebuild=False):
     # if the "outputs" directory doesn't exist, create it
     if not os.path.exists("outputs"):
         os.makedirs("outputs", exist_ok=True)
@@ -287,7 +287,7 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
         module_text = remove_markdown(documented_module.message)
 
     with yaspin(text="Starting Rocky Docker container...", color="green") as spinner:
-        container = start_rocky_container(version=8, minimal=False)
+        container = start_rocky_container(version=8, minimal=False, rebuild=rebuild)
 
     with yaspin(text="Linting module...", color="yellow") as spinner:
         module_is_valid = lint_module(module_text, container)
@@ -321,7 +321,7 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
     tidy_up(container)
 
     with yaspin(text="Starting Debian Docker container...", color="green") as spinner:
-        container = start_debian_container(version="bookworm", minimal=False)
+        container = start_debian_container(version="bookworm", minimal=False, rebuild=rebuild)
 
     with yaspin(text="Testing module runs in Debian...", color="green") as spinner:
         exit_code, output = test_module_runs(module_text, container)
@@ -360,8 +360,8 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
 
     end_time = datetime.datetime.now()
     elapsed_time = (end_time - start_time).total_seconds()
-    print(f"Module saved to {safe_filename}")
-    print(f"\n\nTotal time: {round(elapsed_time, 2)} seconds")
+    print(f"\n\nModule saved to {safe_filename}")
+    print(f"Total time: {round(elapsed_time, 2)} seconds")
     print(f"Total cost: ${round(total_cost, 5)}")
 
 if __name__ == "__main__":
@@ -369,5 +369,6 @@ if __name__ == "__main__":
     argp.add_argument("--requirements-file", type=str, default="", help="A text file containing your requirements")
     argp.add_argument("--model", type=str, default=gpt.Model.GPT_4_OMNI_0806.value[0], help="The LLM model to use")
     argp.add_argument("--vendor", type=str, default="openai", help="The LLM vendor to use (not needed for openai/anthropic models)")
+    argp.add_argument("--rebuild", action="store_true", help="Rebuild the Docker containers fresh")
     args = argp.parse_args()
-    main(model=args.model, vendor=args.vendor, requirements_file=args.requirements_file)
+    main(model=args.model, vendor=args.vendor, requirements_file=args.requirements_file, rebuild=args.rebuild)

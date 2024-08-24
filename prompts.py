@@ -35,6 +35,19 @@ an 'if' block with commented out code inside it.  For example :
     #     require => File['/root/bin/automysqlbackup.sh'],
     # }
 
+If the module has an example or optional section, it should be fully commented out so that the user can easily uncomment
+it and amend it.  For example :
+
+  # Manage firewall rules if required
+  # if $manage_firewall {
+    # Ensure the default HTTP and HTTPS ports are open
+    # firewall { '100 allow http and https access':
+    #   dport  => [80, 443],
+    #   proto  => 'tcp',
+    #   action => 'accept',
+    # }
+  # }
+
 If the module should use an erb template, you should provide a commented-out version of the code so that the user can easily
 uncomment and amend it.  The commented out code should still work - it should not be an 'if' block with commented out code
 inside it.  For example :

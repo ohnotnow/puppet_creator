@@ -48,8 +48,9 @@ Run the script using the command line. You can provide a file containing your re
 ### Command-Line Arguments
 
 - `--requirements-file`: Path to a text file containing the module requirements.
-- `--model`: The LLM model to use (default: `gpt-4o-mini`).
+- `--model`: The LLM model to use (default: `gpt-4o-2024-08-06`).
 - `--vendor`: The LLM vendor to use (not needed for openai/anthropic models).
+- `--rebuild`: Force a rebuild of the Docker containers used to test the module
 
 ### Example Usage
 
