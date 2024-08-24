@@ -1,0 +1,15 @@
+.env
+__pycache__*
+venv*
+autogen.*
+.env.*
+templates*
+ff*
+components*
+tw*
+wip*
+form.blade.php
+claude_tw*
+outputs/*
+!outputs/.gitkeep
+
