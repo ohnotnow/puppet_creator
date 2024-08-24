@@ -87,5 +87,112 @@ python main.py --model=llama3-70b-8192 --vendor=groq
 6. **Create Filename**: Suggests a Linux filesystem-safe filename for the module.
 7. **Save Module**: Saves the module with the generated filename.
 
+## Example
+
+```sh
+$ python main.py
+Enter your requirements:
+install apache and mod_php. use the remi repo for yum and the andrej one for apt. assume php 8.3.  make sure apache and php are kept up to date.
+⠦ Starting Rocky Docker container...Image puppet-rocky-8:latest found
+⠹ Starting Debian Docker container...Image puppet-debian-bookworm:latest found
+Module saved to outputs/apache_php83_remi_andrej.pp
+
+
+Total time: 62.54 seconds
+Total cost: $0.0487
+
+$ cat outputs/apache_php83_remi_andrej.pp
+```
+```ruby
+class apache_php {
+  # Define parameters with default values
+  $php_version = '8.3'
+  $apache_package = $facts['os']['family'] ? {
+    'RedHat' => 'httpd',
+    'Debian' => 'apache2',
+    default  => 'apache2',
+  }
+  $php_package = $facts['os']['family'] ? {
+    'RedHat' => "php${php_version.replace('.', '')}",
+    'Debian' => "php${php_version}",
+    default  => "php${php_version}",
+  }
+  $mod_php_package = $facts['os']['family'] ? {
+    'RedHat' => "php${php_version.replace('.', '')}-php",
+    'Debian' => "libapache2-mod-php${php_version}",
+    default  => "libapache2-mod-php${php_version}",
+  }
+
+  # Manage repositories based on OS family
+  if $facts['os']['family'] == 'RedHat' {
+    # Ensure EPEL is enabled
+    package { 'epel-release':
+      ensure => installed,
+    }
+
+    # Add Remi repository for PHP
+    yumrepo { 'remi':
+      baseurl  => "http://rpms.remirepo.net/enterprise/\$releasever/remi/\$basearch/",
+      gpgkey   => 'https://rpms.remirepo.net/RPM-GPG-KEY-remi',
+      enabled  => 1,
+      gpgcheck => 1,
+    }
+  } elsif $facts['os']['family'] == 'Debian' {
+    # Ensure apt-transport-https is installed
+    package { 'apt-transport-https':
+    'Debian' => "libapache2-mod-php${php_version}",
+    default  => "libapache2-mod-php${php_version}",
+  }
+
+  # Manage repositories based on OS family
+  if $facts['os']['family'] == 'RedHat' {
+    # Ensure EPEL is enabled
+    package { 'epel-release':
+      ensure => installed,
+    }
+
+    # Add Remi repository for PHP
+    yumrepo { 'remi':
+      baseurl  => "http://rpms.remirepo.net/enterprise/\$releasever/remi/\$basearch/",
+      gpgkey   => 'https://rpms.remirepo.net/RPM-GPG-KEY-remi',
+      enabled  => 1,
+      gpgcheck => 1,
+    }
+  } elsif $facts['os']['family'] == 'Debian' {
+    # Ensure apt-transport-https is installed
+    package { 'apt-transport-https':
+      ensure => installed,
+    }
+
+    # Add Ondřej Surý PPA for PHP
+    apt::source { 'ondrej-php':
+      location => 'ppa:ondrej/php',
+      release  => $facts['lsbdistcodename'],
+      repos    => 'main',
+    }
+
+    # Update apt cache
+    exec { 'apt_update':
+      command     => '/usr/bin/apt-get update',
+      refreshonly => true,
+      subscribe   => Apt::Source['ondrej-php'],
+    }
+  }
+
+  # Install Apache and PHP packages
+  package { [$apache_package, $php_package, $mod_php_package]:
+    ensure => latest,
+  }
+
+  # Ensure Apache service is running and enabled
+  service { 'apache':
+    name    => $apache_package,
+    ensure  => running,
+    enable  => true,
+    require => Package[$apache_package],
+  }
+}
+```
+
 ## License
 MIT License
