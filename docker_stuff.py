@@ -1,3 +1,9 @@
+import docker
+import io
+import os
+import tarfile
+from yaspin import yaspin
+
 def get_dockerfile(distro_name, version, minimal=False):
     if distro_name == 'rocky':
         return get_rocky_dockerfile(version, minimal)
@@ -75,3 +81,89 @@ ENV PATH="/opt/puppetlabs/bin:$PATH"
 # Command to keep the container running
 CMD ["tail", "-f", "/dev/null"]
 """
+
+def copy_to_container(container, src, dst):
+    # we need to create a tarball of the source file to copy it in - dockerism
+    tar_stream = io.BytesIO()
+    with tarfile.open(fileobj=tar_stream, mode='w') as tar:
+        tar.add(src, arcname=os.path.basename(src))
+    tar_stream.seek(0)
+
+    # copy/untar the file into the container
+    container.put_archive(os.path.dirname(dst), tar_stream)
+
+def get_docker_client():
+    return docker.from_env()
+
+def build_rocky_container(version=8, minimal=False, rebuild=False):
+    image_tag = f"puppet-rocky-{version}:latest"
+    dockerfile = get_dockerfile('rocky', version, minimal)
+    build_container(image_tag, dockerfile, rebuild)
+    return image_tag
+
+def build_debian_container(version=12, minimal=False, rebuild=False):
+    image_tag = f"puppet-debian-{version}:latest"
+    dockerfile = get_dockerfile('debian', version, minimal)
+    build_container(image_tag, dockerfile, rebuild)
+    return image_tag
+
+def start_rocky_container(version=8, minimal=False, rebuild=False):
+    image_tag = build_rocky_container(version=version, minimal=minimal, rebuild=rebuild)
+    container = start_container(image_tag, f"puppet-rocky-{version}-test-container")
+    return container
+
+def start_debian_container(version=12, minimal=False, rebuild=False):
+    image_tag = build_debian_container(version=version, minimal=minimal, rebuild=rebuild)
+    container = start_container(image_tag, f"puppet-debian-{version}-test-container")
+    return container
+
+def start_container(image_tag, name):
+    client = get_docker_client()
+    try:
+        container = client.containers.run(
+            image_tag,
+            detach=True,
+            name=name,
+        )
+        return container
+    except docker.errors.DockerException as e:
+        print(f"Error creating container: {e}")
+        exit(1)
+    except Exception as e:
+        print(f"Error creating container: {e}")
+        exit(1)
+
+def build_container(image_tag, dockerfile, rebuild=False):
+    client = get_docker_client()
+    if not rebuild:
+        try:
+            client.images.get(image_tag)
+            print(f"Using cached image {image_tag}")
+            return image_tag
+        except docker.errors.ImageNotFound:
+            print(f"Image {image_tag} not found. Building...")
+
+    with open('Dockerfile', 'w') as f:
+        f.write(dockerfile)
+
+    try:
+        client.images.build(
+            path="./",
+            tag=image_tag,
+            rm=True,
+            nocache=rebuild
+        )
+    except docker.errors.BuildError as e:
+        print(e)
+        exit(1)
+
+    return image_tag
+
+def exec_in_container(container, command):
+    exec_result = container.exec_run(command)
+    return exec_result.exit_code, exec_result.output.decode('utf-8')
+
+def tidy_up(container):
+    with yaspin(text=f"Tidying up container {container.name}...", color="red") as spinner:
+        container.stop()
+        container.remove()
