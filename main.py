@@ -38,10 +38,12 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
         container = start_rocky_container(version=8, minimal=False, rebuild=rebuild)
 
     with yaspin(text="Linting module...", color="yellow") as spinner:
-        module_is_valid = lint_module(module_text, container)
-        if not module_is_valid:
+        exit_code, lint_output = lint_module(module_text, container)
+        if exit_code != 0:
             print("Module failed linting. Exiting.")
             print(module.message)
+            print(lint_output)
+            tidy_up(container)
             exit(1)
 
     with yaspin(text="Testing module runs in Rocky...", color="green") as spinner:
@@ -108,7 +110,8 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
 
     end_time = datetime.datetime.now()
     elapsed_time = (end_time - start_time).total_seconds()
-    print(f"\n\nModule saved to {safe_filename}")
+    print("\n\n")
+    print(f"Module saved to {safe_filename}")
     print(f"Total time: {round(elapsed_time, 2)} seconds")
     print(f"Total cost: ${round(total_cost, 5)}")
 
