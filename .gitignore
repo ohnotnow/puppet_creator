@@ -13,4 +13,5 @@ claude_tw*
 outputs/*
 !outputs/.gitkeep
 testinfra_script.py
+log.md
 

@@ -34,19 +34,15 @@ an 'if' block with commented out code inside it.  For example :
     #     minute  => 5,
     #     require => File['/root/bin/automysqlbackup.sh'],
     # }
-
-If the module has an example or optional section, it should be fully commented out so that the user can easily uncomment
-it and amend it.  For example :
-
-  # Manage firewall rules if required
-  # if $manage_firewall {
-    # Ensure the default HTTP and HTTPS ports are open
-    # firewall { '100 allow http and https access':
-    #   dport  => [80, 443],
-    #   proto  => 'tcp',
-    #   action => 'accept',
+    # Manage firewall rules if required
+    # if $manage_firewall {
+    #   Ensure the default HTTP and HTTPS ports are open
+    #   firewall { '100 allow http and https access':
+    #     dport  => [80, 443],
+    #     proto  => 'tcp',
+    #     action => 'accept',
+    #   }
     # }
-  # }
 
 If the module should use an erb template, you should provide a commented-out version of the code so that the user can easily
 uncomment and amend it.  The commented out code should still work - it should not be an 'if' block with commented out code
@@ -74,11 +70,45 @@ directly run in a docker container to test it so any extra output will cause the
 
 document_module_prompt = """
 You are a helpful AI assistant who is an expert at using the Puppet system configuration system.  The user will provide you
-with a puppet module.  Your MISSION is to return a version of the puppet module but with "Puppet Strings" added to it so that
-the user can easily understand the module and generate documentation for the module when they run `puppet strings generate`.
+with a puppet module.  Your MISSION is to return a version of the puppet module but with "Puppet Strings" added to it.
 
 You should respond with only the documented puppet module code - no further chat or markdown formatting.  The puppet module will be
 directly run in a docker container to test it so any extra output will cause the test to fail.
+
+An example of what you should return is :
+
+# @summary configures the Apache PHP module
+#
+# @example Basic usage
+#   class { 'apache::mod::php':
+#     package_name => 'mod_php5',
+#     source       => '/etc/php/custom_config.conf',
+#     php_version  => '7',
+#   }
+#
+# @see http://php.net/manual/en/security.apache.php
+#
+# @param package_name
+#   Names the package that installs mod_php
+# @param package_ensure
+#   Defines ensure for the PHP module package
+# @param path
+#   Defines the path to the mod_php shared object (.so) file.
+# @param extensions
+#   Defines an array of extensions to associate with PHP.
+# @param content
+#   Adds arbitrary content to php.conf.
+# @param template
+#   Defines the path to the php.conf template Puppet uses to generate the configuration file.
+# @param source
+#   Defines the path to the default configuration. Values include a puppet:/// path.
+# @param root_group
+#   Names a group with root access
+# @param php_version
+#   Names the PHP version Apache is using.
+#
+class apache::mod::php (
+... all the original module code ...
 """
 
 test_module_prompt = """

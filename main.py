@@ -4,7 +4,7 @@ import os
 from yaspin import yaspin
 
 from gepetto import bot_factory, gpt
-from helpers import remove_markdown, sanitize_filename, save_file, create_output_directory, get_requirements
+from helpers import remove_markdown, sanitize_filename, save_file, create_output_directory, get_requirements, write_to_log, remove_previous_log
 from llm_steps import get_llm_thoughts, create_module, document_module, create_test, create_filename
 from docker_stuff import start_rocky_container, start_debian_container, tidy_up
 from steps import lint_module, test_module_runs, test_module_works
@@ -21,18 +21,23 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
     total_cost = 0
     bot = bot_factory.get_bot(model=model, vendor=vendor)
 
+    remove_previous_log()
+
     with yaspin(text="Thinking through requirements...", color="magenta") as spinner:
         llm_thoughts = get_llm_thoughts(requirements, bot)
         total_cost += llm_thoughts.cost
+        write_to_log("LLM Thoughts", llm_thoughts.message)
 
     with yaspin(text="Creating module...", color="cyan") as spinner:
         module = create_module(requirements, llm_thoughts.message, bot)
         total_cost += module.cost
         module_text = remove_markdown(module.message)
-    # with yaspin(text="Documenting module...", color="cyan") as spinner:
-    #     documented_module = document_module(module_text, bot)
-    #     total_cost += documented_module.cost
-    #     module_text = remove_markdown(documented_module.message)
+        write_to_log("Generated Module", f"```\n{module_text}\n```")
+    with yaspin(text="Documenting module...", color="cyan") as spinner:
+        documented_module = document_module(module_text, bot)
+        total_cost += documented_module.cost
+        module_text = remove_markdown(documented_module.message)
+        write_to_log("Documented Module", f"```\n{module_text}\n```")
 
     lint_in_container(module_text)
 
@@ -56,6 +61,8 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
     print(f"Module saved to {safe_filename}")
     print(f"Total time: {round(elapsed_time, 2)} seconds")
     print(f"Total cost: ${round(total_cost, 5)}")
+    write_to_log("Stats", f"Total cost: ${round(total_cost, 5)} | Total time: {round(elapsed_time, 2)} seconds")
+    print("(Run log saved to log.md)")
 
 def lint_in_container(module_text):
     with yaspin(text="Starting Linting Docker container...", color="green") as spinner:

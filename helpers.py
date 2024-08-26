@@ -44,3 +44,13 @@ def get_requirements(requirements_file):
     else:
         requirements = input("Enter your requirements:\n")
     return requirements
+
+def remove_previous_log():
+    if os.path.exists("log.md"):
+        os.remove("log.md")
+
+def write_to_log(title: str, message: str):
+    with open("log.md", "a") as f:
+        f.write(f"\n# {title}\n\n")
+        f.write(message)
+        f.write("\n\n")
