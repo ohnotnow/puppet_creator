@@ -34,68 +34,10 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
         total_cost += documented_module.cost
         module_text = remove_markdown(documented_module.message)
 
-    with yaspin(text="Starting Rocky Docker container...", color="green") as spinner:
-        container = start_rocky_container(version=8, minimal=False, rebuild=rebuild)
+    lint_in_container(module_text)
 
-    with yaspin(text="Linting module...", color="yellow") as spinner:
-        exit_code, lint_output = lint_module(module_text, container)
-        if exit_code != 0:
-            print("Module failed linting. Exiting.")
-            print(module.message)
-            print(lint_output)
-            tidy_up(container)
-            exit(1)
-
-    with yaspin(text="Testing module runs in Rocky...", color="green") as spinner:
-        exit_code, output = test_module_runs(module_text, container)
-        if exit_code != 0:
-            print(f"Module failed to run with exit code {exit_code}")
-            print(f"Output: {output}")
-            print(f"Module:\n{module_text}")
-            tidy_up(container)
-            exit(1)
-
-    with yaspin(text="Testing module works in Rocky...", color="green") as spinner:
-        testinfra = create_test(requirements, module_text, llm_thoughts.message, bot)
-        test_text = remove_markdown(testinfra.message)
-        total_cost += testinfra.cost
-        exit_code, output = test_module_works(module_text, test_text, container)
-        if exit_code != 0:
-            print(f"Module failed it's tests with exit code {exit_code}")
-            print(f"Output: {output}")
-            print(f"Module:\n{module}")
-            print(f"TestInfra script:\n{test_text}")
-            tidy_up(container)
-            exit(1)
-
-    tidy_up(container)
-
-    with yaspin(text="Starting Debian Docker container...", color="green") as spinner:
-        container = start_debian_container(version="bookworm", minimal=False, rebuild=rebuild)
-
-    with yaspin(text="Testing module runs in Debian...", color="green") as spinner:
-        exit_code, output = test_module_runs(module_text, container)
-        if exit_code != 0:
-            print(f"Module failed to run with exit code {exit_code}")
-            print(f"Output: {output}")
-            print(f"Module:\n{module_text}")
-            tidy_up(container)
-            exit(1)
-
-    with yaspin(text="Testing module works in Debian...", color="green") as spinner:
-        testinfra = create_test(requirements, module_text, llm_thoughts.message, bot)
-        test_text = remove_markdown(testinfra.message)
-        total_cost += testinfra.cost
-        exit_code, output = test_module_works(module_text, test_text, container)
-        if exit_code != 0:
-            print(f"Module failed it's tests with exit code {exit_code}")
-            print(f"Output: {output}")
-            print(f"Module:\n{module}")
-            print(f"TestInfra script:\n{test_text}")
-            tidy_up(container)
-            exit(1)
-
-    tidy_up(container)
+    total_cost = test_in_container("Rocky", 8, requirements, module_text, llm_thoughts, bot, total_cost, rebuild)
+    total_cost = test_in_container("Debian", "bookworm", requirements, module_text, llm_thoughts, bot, total_cost, rebuild)
 
     with yaspin(text="Creating filename...", color="red") as spinner:
         filename = create_filename(requirements, bot)
@@ -114,6 +56,47 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
     print(f"Module saved to {safe_filename}")
     print(f"Total time: {round(elapsed_time, 2)} seconds")
     print(f"Total cost: ${round(total_cost, 5)}")
+
+def lint_in_container(module_text):
+    with yaspin(text="Starting Linting Docker container...", color="green") as spinner:
+        container = start_rocky_container(version=8, minimal=False, rebuild=False)
+    with yaspin(text="Linting module...", color="yellow") as spinner:
+        exit_code, lint_output = lint_module(module_text, container)
+        if exit_code != 0:
+            print("Module failed linting. Exiting.")
+            print(module_text)
+            print(lint_output)
+            tidy_up(container)
+            exit(1)
+    with yaspin(text="Removing lint container...", color="red") as spinner:
+        tidy_up(container)
+    return True
+
+def test_in_container(container_type, version, requirements, module_text, llm_thoughts, bot, total_cost, rebuild):
+    with yaspin(text=f"Starting {container_type} Docker container...", color="green") as spinner:
+        if container_type == "Rocky":
+            container = start_rocky_container(version=version, minimal=False, rebuild=rebuild)
+        else:
+            container = start_debian_container(version=version, minimal=False, rebuild=rebuild)
+
+    try:
+        with yaspin(text=f"Testing module runs in {container_type}...", color="green") as spinner:
+            exit_code, output = test_module_runs(module_text, container)
+            if exit_code != 0:
+                raise RuntimeError(f"Module failed to run with exit code {exit_code}\nOutput: {output}\nModule:\n{module_text}")
+
+        with yaspin(text=f"Testing module works in {container_type}...", color="green") as spinner:
+            testinfra = create_test(requirements, module_text, llm_thoughts.message, bot)
+            test_text = remove_markdown(testinfra.message)
+            total_cost += testinfra.cost
+            exit_code, output = test_module_works(module_text, test_text, container)
+            if exit_code != 0:
+                raise RuntimeError(f"Module failed its tests with exit code {exit_code}\nOutput: {output}\nModule:\n{module_text}\nTestInfra script:\n{test_text}")
+
+    finally:
+        tidy_up(container)
+
+    return total_cost
 
 if __name__ == "__main__":
     argp = argparse.ArgumentParser()

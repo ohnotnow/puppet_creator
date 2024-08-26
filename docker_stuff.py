@@ -108,17 +108,20 @@ def build_debian_container(version=12, minimal=False, rebuild=False):
     return image_tag
 
 def start_rocky_container(version=8, minimal=False, rebuild=False):
+    container_name = f"puppet-rocky-{version}-test-container"
     image_tag = build_rocky_container(version=version, minimal=minimal, rebuild=rebuild)
-    container = start_container(image_tag, f"puppet-rocky-{version}-test-container")
+    container = start_container(image_tag, container_name)
     return container
 
 def start_debian_container(version=12, minimal=False, rebuild=False):
+    container_name = f"puppet-debian-{version}-test-container"
     image_tag = build_debian_container(version=version, minimal=minimal, rebuild=rebuild)
-    container = start_container(image_tag, f"puppet-debian-{version}-test-container")
+    container = start_container(image_tag, container_name)
     return container
 
 def start_container(image_tag, name):
     client = get_docker_client()
+    remove_existing_container(name)
     try:
         container = client.containers.run(
             image_tag,
@@ -132,6 +135,14 @@ def start_container(image_tag, name):
     except Exception as e:
         print(f"Error creating container: {e}")
         exit(1)
+
+def remove_existing_container(container_name: str) -> bool:
+    client = get_docker_client()
+    try:
+        container = client.containers.get(container_name)
+        tidy_up(container)
+    except docker.errors.DockerException as e:
+        pass
 
 def build_container(image_tag, dockerfile, rebuild=False):
     client = get_docker_client()
@@ -164,6 +175,5 @@ def exec_in_container(container, command):
     return exec_result.exit_code, exec_result.output.decode('utf-8')
 
 def tidy_up(container):
-    with yaspin(text=f"Tidying up container {container.name}...", color="red") as spinner:
-        container.stop()
-        container.remove()
+    container.stop()
+    container.remove()
