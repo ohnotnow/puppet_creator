@@ -36,7 +36,7 @@ def document_module(module, bot):
         },
         {
             "role": "user",
-            "content": f"Hi! I would like you to thoroughly document the following puppet module with puppet strings:\n\n{module}"
+            "content": f"Hi! I would like you to add puppet strings to the following puppet module:\n\n{module}"
         }
     ]
     response = bot.chat(messages, temperature=0.1)

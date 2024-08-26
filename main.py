@@ -29,10 +29,10 @@ def main(model=gpt.Model.GPT_4_OMNI_0806.value[0], vendor="", requirements_file=
         module = create_module(requirements, llm_thoughts.message, bot)
         total_cost += module.cost
         module_text = remove_markdown(module.message)
-    with yaspin(text="Documenting module...", color="cyan") as spinner:
-        documented_module = document_module(module_text, bot)
-        total_cost += documented_module.cost
-        module_text = remove_markdown(documented_module.message)
+    # with yaspin(text="Documenting module...", color="cyan") as spinner:
+    #     documented_module = document_module(module_text, bot)
+    #     total_cost += documented_module.cost
+    #     module_text = remove_markdown(documented_module.message)
 
     lint_in_container(module_text)
 

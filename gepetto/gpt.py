@@ -114,7 +114,7 @@ class GPTModelSync():
             return round(token_price_input * token_count, 4)
         return round(token_price_output * token_count, 4)
 
-    def chat(self, messages, temperature=0.1, model=None, top_p=1.0):
+    def chat(self, messages, temperature=0.1, model=Model.GPT_4_OMNI_0806.value[0], top_p=1.0):
         """Chat with the model.
 
         Args:
